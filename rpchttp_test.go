@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
+	//"net"
 	"net/http"
 	"net/rpc"
 	"testing"
@@ -24,8 +24,8 @@ var start = false
 
 func BenchmarkHttpSync(b *testing.B) {
 	done := make(chan bool, 10)
-	fmt.Println("start")
 	if !start {
+		fmt.Println("start Http RPC")
 		startHttpRPC()
 	}
 
@@ -38,7 +38,26 @@ func BenchmarkHttpSync(b *testing.B) {
 			<-done
 		}
 	}
+	b.StopTimer()
 }
+
+//func BenchmarkHttpAsync(b *testing.B) {
+//	done := make(chan bool, 10)
+//	if !start {
+//		//fmt.Println("start Http RPC")
+//		startHttpRPC()
+//	}
+//
+//	b.ResetTimer()
+//	for i := 0; i < b.N; i++ {
+//		for i := 0; i < 10; i++ {
+//			go clientAsync(done)
+//		}
+//		for i := 0; i < 10; i++ {
+//			<-done
+//		}
+//	}
+//}
 
 func startHttpRPC() {
 	start = true
@@ -46,11 +65,7 @@ func startHttpRPC() {
 
 	rpc.Register(foo)
 	rpc.HandleHTTP()
-	l, e := net.Listen("tcp", ":1234")
-	if e != nil {
-		log.Fatal("listen error:", e)
-	}
-	go http.Serve(l, nil)
+	go http.ListenAndServe(":1234", nil)
 }
 
 func clientHttpDial() *rpc.Client {
@@ -72,7 +87,7 @@ func clientSync(done chan bool) {
 	if err != nil {
 		log.Fatal("Dummy error:", err)
 	}
-	fmt.Println(reply)
+	//fmt.Println(reply)
 	done <- true
 }
 
@@ -88,6 +103,6 @@ func clientAsync(done chan bool) {
 	if call.Error != nil {
 		log.Fatal("Dummy error:", call.Error)
 	}
-	fmt.Println(reply)
+	//fmt.Println(reply)
 	done <- true
 }
