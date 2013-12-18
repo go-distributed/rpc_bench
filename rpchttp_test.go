@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	//"fmt"
 	"log"
 	//"net"
 	"net/http"
@@ -20,14 +20,12 @@ func (t *Foo) Dummy(args *Args, reply *string) error {
 	return nil
 }
 
-var start = false
+//var start = false
 
 func BenchmarkHttpSync(b *testing.B) {
 	done := make(chan bool, 10)
-	if !start {
-		fmt.Println("start Http RPC")
-		startHttpRPC()
-	}
+	//fmt.Println("start Http RPC")
+	startHttpRPC()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -38,32 +36,30 @@ func BenchmarkHttpSync(b *testing.B) {
 			<-done
 		}
 	}
-	b.StopTimer()
 }
 
-//func BenchmarkHttpAsync(b *testing.B) {
-//	done := make(chan bool, 10)
-//	if !start {
-//		//fmt.Println("start Http RPC")
-//		startHttpRPC()
-//	}
-//
-//	b.ResetTimer()
-//	for i := 0; i < b.N; i++ {
-//		for i := 0; i < 10; i++ {
-//			go clientAsync(done)
-//		}
-//		for i := 0; i < 10; i++ {
-//			<-done
-//		}
-//	}
-//}
+func BenchmarkHttpAsync(b *testing.B) {
+	done := make(chan bool, 10)
+	//fmt.Println("start Http RPC")
+	startHttpRPC()
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < 10; i++ {
+			go clientAsync(done)
+		}
+		for i := 0; i < 10; i++ {
+			<-done
+		}
+	}
+}
 
 func startHttpRPC() {
-	start = true
+	//start = true
 	foo := new(Foo)
 
 	rpc.Register(foo)
+	http.DefaultServeMux = http.NewServeMux()
 	rpc.HandleHTTP()
 	go http.ListenAndServe(":1234", nil)
 }
