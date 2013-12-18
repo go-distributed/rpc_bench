@@ -5,13 +5,13 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"testing"
 	"strconv"
+	"testing"
 )
 
 const (
 	ServerHTTP = 0
-	ServerTCP = 1
+	ServerTCP  = 1
 )
 
 type Args struct {
@@ -30,9 +30,9 @@ var start = 0
 func BenchmarkHttpSync(b *testing.B) {
 	done := make(chan bool, 10)
 	if start != 1 {
-		startRPC(ServerHTTP, &start)	
+		startRPC(ServerHTTP, &start)
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < 10; i++ {
@@ -46,10 +46,10 @@ func BenchmarkHttpSync(b *testing.B) {
 
 func BenchmarkHttpAsync(b *testing.B) {
 	done := make(chan bool, 10)
-	if start != 2{
+	if start != 2 {
 		startRPC(ServerHTTP, &start)
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < 10; i++ {
@@ -98,7 +98,7 @@ func BenchmarkTCPAsync(b *testing.B) {
 func startRPC(stype int, start *int) {
 	*start = *start + 1
 	foo := new(Foo)
-	port := strconv.Itoa(*start+3000)
+	port := strconv.Itoa(*start + 3000)
 
 	rpc.Register(foo)
 	if stype == ServerHTTP {
@@ -124,9 +124,8 @@ func startRPC(stype int, start *int) {
 	}
 }
 
-
 func clientDial(stype, pt int) *rpc.Client {
-	port := strconv.Itoa(pt+3000)
+	port := strconv.Itoa(pt + 3000)
 	if stype == ServerHTTP {
 		client, err := rpc.DialHTTP("tcp", "localhost:"+port)
 		if err != nil {
