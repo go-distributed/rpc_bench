@@ -1,12 +1,17 @@
 package main
 
 import (
-	//"fmt"
 	"log"
-	//"net"
+	"net"
 	"net/http"
 	"net/rpc"
 	"testing"
+	"strconv"
+)
+
+const (
+	ServerHTTP = 0
+	ServerTCP = 1
 )
 
 type Args struct {
@@ -20,17 +25,18 @@ func (t *Foo) Dummy(args *Args, reply *string) error {
 	return nil
 }
 
-//var start = false
+var start = 0
 
 func BenchmarkHttpSync(b *testing.B) {
 	done := make(chan bool, 10)
-	//fmt.Println("start Http RPC")
-	startHttpRPC()
-
+	if start != 1 {
+		startRPC(ServerHTTP, &start)	
+	}
+	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < 10; i++ {
-			go clientSync(done)
+			go clientSync(ServerHTTP, start, done)
 		}
 		for i := 0; i < 10; i++ {
 			<-done
@@ -40,13 +46,14 @@ func BenchmarkHttpSync(b *testing.B) {
 
 func BenchmarkHttpAsync(b *testing.B) {
 	done := make(chan bool, 10)
-	//fmt.Println("start Http RPC")
-	startHttpRPC()
+	if start != 2{
+		startRPC(ServerHTTP, &start)
+	}
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for i := 0; i < 10; i++ {
-			go clientAsync(done)
+			go clientAsync(ServerHTTP, start, done)
 		}
 		for i := 0; i < 10; i++ {
 			<-done
@@ -54,41 +61,105 @@ func BenchmarkHttpAsync(b *testing.B) {
 	}
 }
 
-func startHttpRPC() {
-	//start = true
-	foo := new(Foo)
+func BenchmarkTCPSync(b *testing.B) {
+	done := make(chan bool, 10)
+	if start != 3 {
+		startRPC(ServerTCP, &start)
+	}
 
-	rpc.Register(foo)
-	http.DefaultServeMux = http.NewServeMux()
-	rpc.HandleHTTP()
-	go http.ListenAndServe(":1234", nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < 10; i++ {
+			go clientSync(ServerTCP, start, done)
+		}
+		for i := 0; i < 10; i++ {
+			<-done
+		}
+	}
 }
 
-func clientHttpDial() *rpc.Client {
-	client, err := rpc.DialHTTP("tcp", "localhost:1234")
+func BenchmarkTCPAsync(b *testing.B) {
+	done := make(chan bool, 10)
+	if start != 4 {
+		startRPC(ServerTCP, &start)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < 10; i++ {
+			go clientAsync(ServerTCP, start, done)
+		}
+		for i := 0; i < 10; i++ {
+			<-done
+		}
+	}
+}
+
+func startRPC(stype int, start *int) {
+	*start = *start + 1
+	foo := new(Foo)
+	port := strconv.Itoa(*start+3000)
+
+	rpc.Register(foo)
+	if stype == ServerHTTP {
+		http.DefaultServeMux = http.NewServeMux() // avoid panic for dup-registering handler
+		rpc.HandleHTTP()
+		go http.ListenAndServe("localhost:"+port, nil)
+	}
+	if stype == ServerTCP {
+		ln, err := net.Listen("tcp", "localhost:"+port)
+		if err != nil {
+			log.Fatal("listen error:", err)
+		}
+
+		go func() {
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					log.Fatal("Accept error:", err)
+				}
+				go rpc.ServeConn(conn)
+			}
+		}()
+	}
+}
+
+
+func clientDial(stype, pt int) *rpc.Client {
+	port := strconv.Itoa(pt+3000)
+	if stype == ServerHTTP {
+		client, err := rpc.DialHTTP("tcp", "localhost:"+port)
+		if err != nil {
+			log.Fatal("diaHTTP fail:", err)
+		}
+		return client
+	}
+
+	//TCP
+	client, err := rpc.Dial("tcp", "localhost:"+port)
 	if err != nil {
-		log.Fatal("dialing:", err)
+		log.Fatal("dialTCP fail:", err)
 	}
 	return client
 }
 
-func clientSync(done chan bool) {
-	client := clientHttpDial()
+func clientSync(stype, pt int, done chan bool) {
+	client := clientDial(stype, pt)
 	defer client.Close()
 
-	args := &Args{"yifan"}
+	args := &Args{"Rock Gopher"}
 	var reply string
 
 	err := client.Call("Foo.Dummy", args, &reply)
 	if err != nil {
 		log.Fatal("Dummy error:", err)
 	}
-	//fmt.Println(reply)
+	//log.Println(reply)
 	done <- true
 }
 
-func clientAsync(done chan bool) {
-	client := clientHttpDial()
+func clientAsync(stype, pt int, done chan bool) {
+	client := clientDial(stype, pt)
 	defer client.Close()
 
 	args := &Args{"yifan"}
@@ -99,6 +170,6 @@ func clientAsync(done chan bool) {
 	if call.Error != nil {
 		log.Fatal("Dummy error:", call.Error)
 	}
-	//fmt.Println(reply)
+	//log.Println(reply)
 	done <- true
 }
