@@ -1,0 +1,38 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"net"
+	"bufio"
+	"html"
+	"log"
+	"time"
+)
+
+func fooHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+}
+
+func client() {
+	conn, err := net.Dial("tcp", ":8000")
+	if err != nil {
+		log.Fatalf("openerror" ,err)
+	}
+	fmt.Fprintf(conn, "GET / HTTP/1.1\r\n\r\nGET / HTTP/1.1\r\n\r\n")
+	for {
+		a := make([]byte, 4096)
+		status, err := bufio.NewReader(conn).Read(a)
+		if err != nil {
+			break
+		}
+		fmt.Println(string(a[:status]))
+	}
+}
+
+func main() {
+	http.HandleFunc("/", fooHandler)
+	go http.ListenAndServe(":8000", nil)
+	time.Sleep(1 * time.Second)
+	client()
+}
